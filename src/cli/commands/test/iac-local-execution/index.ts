@@ -7,8 +7,10 @@ import {
   IaCTestFlags,
   layerContentType,
   manifestContentType,
+  OCIRegistryURLComponents,
   SafeAnalyticsOutput,
   TestReturnValue,
+  IaCOrgSettings,
 } from './types';
 import { addIacAnalytics } from './analytics';
 import { TestLimitReachedError } from './usage-tracking';
@@ -33,7 +35,7 @@ import { findAndLoadPolicy } from '../../../../lib/policy';
 import { CustomError } from '../../../../lib/errors';
 import { getErrorStringCode } from './error-utils';
 import {
-  extractURLComponents,
+  extractOCIRegistryURLComponents,
   FailedToBuildOCIArtifactError,
   InvalidManifestSchemaVersionError,
   InvalidRemoteRegistryURLError,
@@ -50,54 +52,17 @@ export async function test(
     const iacOrgSettings = await getIacOrgSettings(org);
     const customRulesPath = await customRulesPathForOrg(options.rules, org);
 
-    const OCIRegistryURL =
-      iacOrgSettings.customRules?.ociRegistryURL ||
-      process.env.OCI_REGISTRY_URL;
+    const ociRegistryURLComponents = getOCIRegistryURLComponents(
+      iacOrgSettings,
+    );
+    const isOCIRegistryURLProvided = !!ociRegistryURLComponents;
 
-    if (OCIRegistryURL && customRulesPath) {
+    if (isOCIRegistryURLProvided && customRulesPath) {
       throw new FailedToExecuteCustomRulesError();
     }
 
-    if (OCIRegistryURL) {
-      if (!isValidURL(OCIRegistryURL)) {
-        throw new InvalidRemoteRegistryURLError();
-      }
-
-      const URLComponents = extractURLComponents(OCIRegistryURL);
-      const username = process.env.OCI_REGISTRY_USERNAME;
-      const password = process.env.OCI_REGISTRY_PASSWORD;
-
-      const opt = {
-        username,
-        password,
-        reqOptions: {
-          acceptManifest: manifestContentType,
-          acceptLayer: layerContentType,
-          indexContentType: '',
-        },
-      };
-
-      try {
-        await pull(URLComponents, opt);
-      } catch (err) {
-        if (err.statusCode === 401) {
-          throw new FailedToPullCustomBundleError(
-            'There was an authentication error. Incorrect credentials provided.',
-          );
-        } else if (err.statusCode === 404) {
-          throw new FailedToPullCustomBundleError(
-            'The remote repository could not be found. Please check the provided URL.',
-          );
-        } else if (err instanceof InvalidManifestSchemaVersionError) {
-          throw new FailedToPullCustomBundleError(err.message);
-        } else if (err instanceof FailedToBuildOCIArtifactError) {
-          throw new FailedToBuildOCIArtifactError();
-        } else if (err instanceof InvalidRemoteRegistryURLError) {
-          throw new InvalidRemoteRegistryURLError();
-        } else {
-          throw new FailedToPullCustomBundleError();
-        }
-      }
+    if (isOCIRegistryURLProvided) {
+      await pullIaCCustomRules(ociRegistryURLComponents!);
     } else {
       await initLocalCache({ customRulesPath });
     }
@@ -111,7 +76,7 @@ export async function test(
     );
 
     // Duplicate all the files and run them through the custom engine.
-    if (customRulesPath || OCIRegistryURL) {
+    if (customRulesPath || isOCIRegistryURLProvided) {
       parsedFiles.push(
         ...parsedFiles.map((file) => ({
           ...file,
@@ -199,6 +164,78 @@ export function isValidURL(string) {
     return false;
   }
   return url.protocol === 'http:' || url.protocol === 'https:';
+}
+
+/**
+ * Gets the OCI registry URL components from either the env variables or the IaC org settings.
+ */
+function getOCIRegistryURLComponents(
+  iacOrgSettings?: IaCOrgSettings,
+): OCIRegistryURLComponents | undefined {
+  if (process.env.OCI_REGISTRY_URL) {
+    const envOCIRegistryURL = process.env.OCI_REGISTRY_URL;
+
+    if (!isValidURL(envOCIRegistryURL)) {
+      throw new InvalidRemoteRegistryURLError();
+    }
+
+    return extractOCIRegistryURLComponents(envOCIRegistryURL);
+  }
+
+  if (iacOrgSettings?.customRules?.ociRegistryURL) {
+    const settingsOCIRegistryURL = iacOrgSettings.customRules.ociRegistryURL;
+
+    if (!isValidURL(settingsOCIRegistryURL)) {
+      throw new InvalidRemoteRegistryURLError();
+    }
+
+    return {
+      ...extractOCIRegistryURLComponents(settingsOCIRegistryURL!),
+      tag: iacOrgSettings.customRules.ociRegistryTag || 'latest',
+    };
+  }
+}
+
+/**
+ * Pull and store the IaC custom-rules bundle from the remote OCI Registry.
+ */
+export async function pullIaCCustomRules(
+  ociRegistryURLComponents: OCIRegistryURLComponents,
+) {
+  const username = process.env.OCI_REGISTRY_USERNAME;
+  const password = process.env.OCI_REGISTRY_PASSWORD;
+
+  const opt = {
+    username,
+    password,
+    reqOptions: {
+      acceptManifest: manifestContentType,
+      acceptLayer: layerContentType,
+      indexContentType: '',
+    },
+  };
+
+  try {
+    await pull(ociRegistryURLComponents, opt);
+  } catch (err) {
+    if (err.statusCode === 401) {
+      throw new FailedToPullCustomBundleError(
+        'There was an authentication error. Incorrect credentials provided.',
+      );
+    } else if (err.statusCode === 404) {
+      throw new FailedToPullCustomBundleError(
+        'The remote repository could not be found. Please check the provided URL.',
+      );
+    } else if (err instanceof InvalidManifestSchemaVersionError) {
+      throw new FailedToPullCustomBundleError(err.message);
+    } else if (err instanceof FailedToBuildOCIArtifactError) {
+      throw new FailedToBuildOCIArtifactError();
+    } else if (err instanceof InvalidRemoteRegistryURLError) {
+      throw new InvalidRemoteRegistryURLError();
+    } else {
+      throw new FailedToPullCustomBundleError();
+    }
+  }
 }
 
 export class FailedToPullCustomBundleError extends CustomError {

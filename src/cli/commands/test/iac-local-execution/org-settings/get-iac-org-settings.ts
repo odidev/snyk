@@ -1,4 +1,4 @@
-import { IaCErrorCodes, IacOrgSettings } from '../types';
+import { IaCErrorCodes, IaCOrgSettings } from '../types';
 import { Payload } from '../../../../../lib/snyk-test/types';
 import config from '../../../../../lib/config';
 import { isCI } from '../../../../../lib/is-ci';
@@ -9,7 +9,7 @@ import { getErrorStringCode } from '../error-utils';
 
 export function getIacOrgSettings(
   publicOrgId?: string,
-): Promise<IacOrgSettings> {
+): Promise<IaCOrgSettings> {
   const payload: Payload = {
     method: 'get',
     url: config.API + '/iac-org-settings',

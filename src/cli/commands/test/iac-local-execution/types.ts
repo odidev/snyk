@@ -68,16 +68,16 @@ export type FormattedResult = {
 
 export type IacCustomPolicies = Record<string, { severity?: string }>;
 
-export interface IaCCustomRulesConfigs {
+export interface IaCOrgSettingsCustomRulesConfigs {
   isEnabled?: boolean;
   ociRegistryURL?: string;
   ociRegistryTag?: string;
 }
 
-export interface IacOrgSettings {
+export interface IaCOrgSettings {
   meta: TestMeta;
   customPolicies: IacCustomPolicies;
-  customRules?: IaCCustomRulesConfigs;
+  customRules?: IaCOrgSettingsCustomRulesConfigs;
 }
 
 export interface TestMeta {
@@ -318,7 +318,7 @@ export interface OCIPullOptions {
   imageSavePath?: string;
 }
 
-export interface OciUrl {
+export interface OCIRegistryURLComponents {
   registryBase: string;
   repo: string;
   tag: string;

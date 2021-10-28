@@ -6,7 +6,7 @@ import {
   ImageManifest,
   ManifestConfig,
   OCIPullOptions,
-  OciUrl,
+  OCIRegistryURLComponents,
 } from './types';
 import { CustomError } from '../../../../lib/errors';
 import { getErrorStringCode } from './error-utils';
@@ -18,7 +18,9 @@ const debug = Debug('iac-oci-pull');
 
 export const CUSTOM_RULES_TARBALL = 'custom-bundle.tar.gz';
 
-export function extractURLComponents(OCIRegistryURL: string): OciUrl {
+export function extractOCIRegistryURLComponents(
+  OCIRegistryURL: string,
+): OCIRegistryURLComponents {
   try {
     const url = OCIRegistryURL.split('://')[1];
     const [registryBase, accountName, repoWithTag] = url.split('/');
@@ -39,7 +41,7 @@ export function extractURLComponents(OCIRegistryURL: string): OciUrl {
  * @param opt????? (optional) - object that holds the credentials and other metadata required for the registry-v2-client
  **/
 export async function pull(
-  { registryBase, repo, tag }: OciUrl,
+  { registryBase, repo, tag }: OCIRegistryURLComponents,
   opt?: OCIPullOptions,
 ): Promise<void> {
   const manifest: ImageManifest = await registryClient.getManifest(
