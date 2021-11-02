@@ -1,13 +1,13 @@
+import { CustomError } from '../../errors';
+
 const gemfile = require('@snyk/gemfile');
 
-module.exports = gemfileLockToDependencies;
+const UNPROCESSABLE_ENTITY = 422;
 
 const detectCycles = (dep, chain) => {
   if (chain.indexOf(dep) >= 0) {
-    const error = Error('Cyclic dependency detected in lockfile');
-    const UNPROCESSABLE_ENTITY = 422;
+    const error = new CustomError('Cyclic dependency detected in lockfile');
     error.code = UNPROCESSABLE_ENTITY;
-    error.meta = { dep, chain };
     throw error;
   }
 };
@@ -36,14 +36,15 @@ const gemfileReducer = (lockFile, allDeps, ancestors) => (deps, dep) => {
   return deps;
 };
 
-function gemfileLockToDependencies(fileContents) {
+// eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
+export function gemfileLockToDependencies(fileContents) {
   const lockFile = gemfile.interpret(fileContents, true);
 
   return (
     Object.keys(lockFile.dependencies || {})
       // this is required to sanitise git deps with no exact version
       // listed as `rspec!`
-      .map((dep) => dep.match(/[^!]+/)[0])
+      .map((dep) => dep.match(/[^!]+/)?.[0])
       .reduce(gemfileReducer(lockFile, new Map(), []), {})
   );
 }

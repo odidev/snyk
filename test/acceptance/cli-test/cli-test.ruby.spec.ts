@@ -785,5 +785,17 @@ export const RubyTests: AcceptanceTests = {
         'Suggest using --all-projects',
       );
     },
+
+    '`test monorepo --all-projects`': (params, utils) => async (t) => {
+      utils.chdirWorkspaces();
+      await params.cli.test('monorepo', { allProjects: true });
+
+      const req = params.server.popRequest();
+
+      const rootNodePkgId = req.body.depGraph.graph.nodes.find(
+        (x) => x.nodeId == 'root-node',
+      ).pkgId;
+      t.equal(rootNodePkgId, 'monorepo/sub-ruby-app@');
+    },
   },
 };
