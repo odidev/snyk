@@ -1,13 +1,11 @@
 import * as baseDebug from 'debug';
 import * as pathUtil from 'path';
-// import * as _ from 'lodash';
 const sortBy = require('lodash.sortby');
 const groupBy = require('lodash.groupby');
 import * as micromatch from 'micromatch';
 
 const debug = baseDebug('snyk-yarn-workspaces');
 import * as lockFileParser from 'snyk-nodejs-lockfile-parser';
-import { NoSupportedManifestsFoundError } from '../../errors';
 import {
   MultiProjectResultCustom,
   ScannedProjectCustom,
@@ -26,7 +24,8 @@ export async function processYarnWorkspaces(
   // must have the root level most folders at the top
   const mappedAndFiltered = targetFiles
     .map((p) => ({ path: p, ...pathUtil.parse(p) }))
-    .filter((res) => ['package.json'].includes(res.base));
+    .filter((res) => ['package.json', 'yarn.lock'].includes(res.base));
+
   const sorted = sortBy(mappedAndFiltered, 'dir');
   const grouped = groupBy(sorted, 'dir');
 
@@ -39,9 +38,6 @@ export async function processYarnWorkspaces(
   } = grouped;
 
   debug(`Processing potential Yarn workspaces (${targetFiles.length})`);
-  if (Object.keys(yarnTargetFiles).length === 0) {
-    throw NoSupportedManifestsFoundError([root]);
-  }
   let yarnWorkspacesMap = {};
   const yarnWorkspacesFilesMap = {};
   const result: MultiProjectResultCustom = {
