@@ -20,10 +20,18 @@ export const CUSTOM_RULES_TARBALL = 'custom-bundle.tar.gz';
 
 export function extractURLComponents(OCIRegistryURL: string): OciUrl {
   try {
-    const url = OCIRegistryURL.split('://')[1];
-    const [registryBase, accountName, repoWithTag] = url.split('/');
+    const url = new URL(OCIRegistryURL);
+    const registryBase = url.hostname;
+    // with or without a path, there will at least be a / in the pathname
+    let [accountName, repoWithTag] = url.pathname.substring(1).split('/');
+    // some registries have an account name before the repo name, some don't
+    if (!repoWithTag) {
+      repoWithTag = accountName;
+      accountName = '';
+    }
+
     const [repoName, tag = 'latest'] = repoWithTag.split(':');
-    const repo = accountName + '/' + repoName;
+    const repo = accountName ? accountName + '/' + repoName : repoName;
     return { registryBase, repo, tag };
   } catch {
     throw new InvalidRemoteRegistryURLError();

@@ -88,6 +88,12 @@ describe('custom rules pull from a remote OCI registry', () => {
       process.env.OCI_HARBOR_REGISTRY_USERNAME,
       process.env.OCI_HARBOR_REGISTRY_PASSWORD,
     ],
+    [
+      'Elastic',
+      process.env.OCI_ELASTIC_REGISTRY_URL,
+      process.env.OCI_ELASTIC_REGISTRY_USERNAME,
+      process.env.OCI_ELASTIC_REGISTRY_PASSWORD,
+    ],
   ];
   test.each(cases)(
     'given %p as a registry and correct credentials, it returns a success exit code',
